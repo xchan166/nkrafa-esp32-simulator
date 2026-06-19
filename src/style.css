@@ -1,43 +1,233 @@
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,"Noto Sans Thai",sans-serif;background:#ddd;color:#111}
-button{cursor:pointer;border:0}
-.topbar{height:54px;background:#151515;color:white;display:flex;align-items:center;gap:10px;padding:0 14px}
-.logo{font-size:25px;font-weight:900;letter-spacing:1px;margin-right:8px}.logo span{font-size:17px;color:#58b6ff}
-.blue{background:#1e96e8;color:white;padding:10px 16px;border-radius:4px;font-weight:800;display:flex;align-items:center;gap:8px}
-.spacer{flex:1}.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#eee,#1e96e8)}
-.app{height:calc(100vh - 54px);display:grid;grid-template-columns:50% 50%}
-.editor{background:white;border-right:1px solid #aaa;min-width:430px}
-.tabs{height:43px;background:#e5e5e5;display:flex;align-items:end;padding-left:12px;gap:4px}
-.tab{height:36px;background:transparent;padding:0 18px;font-size:16px}.tab.active{background:white;border-radius:6px 6px 0 0;font-weight:800}
-.code-wrap{display:grid;grid-template-columns:62px 1fr;height:calc(100% - 43px)}
-.lines{color:#0b65b9;text-align:right;padding:10px 12px 0 0;line-height:24px;border-right:1px solid #ddd;font:15px Consolas,monospace}
-textarea{width:100%;height:100%;resize:none;border:0;outline:0;padding:10px 14px;line-height:24px;font:15px Consolas,monospace;color:#1c50a3}
-.sim-area{position:relative;background:#d7d7d7;overflow:hidden}
-.sim-title{position:absolute;top:12px;left:16px;background:white;border-radius:8px 8px 0 0;padding:12px 20px;font-weight:800;z-index:10}
-.sim-buttons{position:absolute;top:58px;left:18px;display:flex;gap:12px;z-index:11}.round{width:48px;height:48px;border-radius:50%;color:white;display:grid;place-items:center;box-shadow:0 4px 8px #999}
-.play{background:#39a852}.add{background:#176cc2}.plug{background:#777}.plug.on{background:#ff8c00}
-.wire-help{position:absolute;right:20px;top:22px;background:#111;color:#00ff88;border-radius:8px;padding:12px 16px;z-index:20}
-.wires{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}.wire{fill:none;stroke-width:6;stroke-linecap:round}.wire-green{stroke:#008b27}.wire-black{stroke:#222}.wire-red{stroke:#d82828}.wire-blue{stroke:#1670c9}
-.parts-layer{position:absolute;inset:0;z-index:2}
-.part{position:absolute;cursor:move;user-select:none}.part.selected{outline:3px dashed #2f8b57;outline-offset:4px}
-.pin{position:absolute;width:12px;height:12px;border-radius:50%;background:#ffd447;border:1px solid #333;z-index:20}.pin:hover{transform:scale(1.6);background:#00e676}
-.esp32-board{width:150px;height:300px;background:#1b1b1b;border:4px solid #111;border-radius:8px;box-shadow:0 6px 12px #888}
-.antenna{height:60px;margin:8px 18px 0;border:5px solid #444;border-bottom:0;background:repeating-linear-gradient(90deg,#444 0 5px,transparent 5px 18px)}
-.esp-module{margin:0 auto;width:110px;height:90px;background:#aaa;color:white;display:grid;place-items:center;font-size:28px}.wifi{font-size:40px;color:#888;margin-top:-18px}.usb{position:absolute;bottom:0;left:54px;width:42px;height:30px;background:#eee;border-radius:6px 6px 0 0}.chip{position:absolute;bottom:64px;left:49px;width:52px;height:46px;background:#333;border-radius:4px}
-.led-part{width:46px;height:86px}.led-head{position:absolute;left:9px;top:0;width:29px;height:39px;border-radius:16px 16px 5px 5px}.led-leg{position:absolute;top:36px;width:4px;height:49px;background:#999}.led-leg.a{left:16px}.led-leg.c{left:30px}
-.resistor-part{width:110px;height:42px}.res-wire{position:absolute;left:0;right:0;top:20px;height:4px;background:#999}.res-body{position:absolute;left:31px;top:6px;width:48px;height:30px;border-radius:14px;background:#f0d58a;border-left:6px solid #9a481e;border-right:6px solid #222;display:grid;place-items:center;font-size:10px}.res-body:after{content:"";position:absolute;left:17px;top:0;width:6px;height:30px;background:red}
-.button-part{width:76px;height:56px;background:#ddd;border:4px solid #aaa;border-radius:4px}.button-core{position:absolute;left:20px;top:10px;width:32px;height:32px;border-radius:50%;box-shadow:inset 0 0 8px #003}
-.lcd-part{width:150px;height:62px;background:#123f16;border:6px solid #09933d;color:#b9ff8b;display:grid;place-items:center;font-weight:800}.oled-part{width:106px;height:58px;background:#064d85;border:5px solid #111;color:white;display:grid;place-items:center;font-weight:800}.sensor-part{width:108px;height:58px;background:#20507b;border:4px solid #111;border-radius:8px;color:white;display:grid;place-items:center;font-weight:800}
-.property-bar{position:absolute;left:18px;right:18px;top:118px;height:70px;background:#2b2b2b;color:white;border-radius:5px;display:flex;align-items:center;gap:16px;padding:10px 18px;z-index:12;box-shadow:0 3px 8px #888}
-.property-bar input{width:140px;background:#1b1b1b;border:1px solid #555;color:white;padding:10px;font-size:18px}.property-bar button{background:#444;color:white;border-radius:5px;padding:10px}
-.parts-panel{position:absolute;left:50%;top:22px;transform:translateX(-50%);width:520px;height:calc(100vh - 90px);background:linear-gradient(#272727,#1e1e1e);color:white;box-shadow:0 8px 22px #555;border-radius:4px;padding:16px 20px;overflow:auto;z-index:30}
-.search{height:48px;border-bottom:1px solid #777;display:flex;align-items:center}.search input{flex:1;background:#222;border:0;color:white;font-size:16px;padding:12px;outline:0}.group{background:#101010;margin:18px 0 0;padding:18px 20px;color:#eee;font-weight:800}
-.part-item{width:100%;height:68px;background:transparent;color:white;display:flex;align-items:center;gap:22px;padding-left:22px;font-size:18px}.part-item:hover{background:#363636}.part-item span{width:45px;font-size:28px}
-.close-parts{margin-top:14px;width:100%;padding:12px;background:#444;color:white;border-radius:8px}
-.serial{position:absolute;left:18px;right:18px;bottom:16px;height:60px;margin:0;background:#111;color:#00ff88;padding:14px;border-radius:8px;overflow:hidden;z-index:5}
-@media(max-width:900px){.app{grid-template-columns:1fr}.editor{min-width:0;height:45vh}.sim-area{height:60vh}.parts-panel{width:90%;height:75%}}
+* {
+  box-sizing: border-box;
+}
 
-/* ===== Wire Editor Pro ===== */
+body {
+  margin: 0;
+  font-family: Arial, "Noto Sans Thai", sans-serif;
+  background: #ddd;
+  color: #111;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+}
+
+.topbar {
+  height: 54px;
+  background: #151515;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.logo {
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin-right: 8px;
+}
+
+.logo span {
+  font-size: 17px;
+  color: #58b6ff;
+}
+
+.blue {
+  background: #1e96e8;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eee, #1e96e8);
+}
+
+.app {
+  height: calc(100vh - 54px);
+  display: grid;
+  grid-template-columns: 50% 50%;
+}
+
+.editor {
+  background: white;
+  border-right: 1px solid #aaa;
+  min-width: 430px;
+}
+
+.tabs {
+  height: 43px;
+  background: #e5e5e5;
+  display: flex;
+  align-items: end;
+  padding-left: 12px;
+  gap: 4px;
+}
+
+.tab {
+  height: 36px;
+  background: transparent;
+  padding: 0 18px;
+  font-size: 16px;
+}
+
+.tab.active {
+  background: white;
+  border-radius: 6px 6px 0 0;
+  font-weight: 800;
+}
+
+.code-wrap {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  height: calc(100% - 43px);
+}
+
+.lines {
+  color: #0b65b9;
+  text-align: right;
+  padding: 10px 12px 0 0;
+  line-height: 24px;
+  border-right: 1px solid #ddd;
+  font: 15px Consolas, monospace;
+}
+
+textarea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 10px 14px;
+  line-height: 24px;
+  font: 15px Consolas, monospace;
+  color: #1c50a3;
+}
+
+.sim-area {
+  position: relative;
+  background: #d7d7d7;
+  overflow: hidden;
+}
+
+.sim-title {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  background: white;
+  border-radius: 8px 8px 0 0;
+  padding: 12px 20px;
+  font-weight: 800;
+  z-index: 10;
+}
+
+.sim-buttons {
+  position: absolute;
+  top: 58px;
+  left: 18px;
+  display: flex;
+  gap: 12px;
+  z-index: 11;
+}
+
+.round {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: white;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 8px #999;
+}
+
+.play {
+  background: #39a852;
+}
+
+.add {
+  background: #176cc2;
+}
+
+.plug {
+  background: #777;
+}
+
+.plug.on {
+  background: #ff8c00;
+}
+
+.cancel {
+  background: #d93636;
+}
+
+.wire-help {
+  position: absolute;
+  right: 20px;
+  top: 22px;
+  background: #111;
+  color: #00ff88;
+  border-radius: 8px;
+  padding: 12px 16px;
+  z-index: 50;
+}
+
+.canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 55;
+  display: flex;
+  gap: 6px;
+  background: #111;
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.zoom-controls button {
+  min-width: 44px;
+  height: 32px;
+  border-radius: 6px;
+  background: #2b2b2b;
+  color: #00ff88;
+  font-weight: 800;
+}
+
+.zoom-controls button:hover {
+  background: #3b3b3b;
+}
+
+/* ชั้นสายไฟอยู่ใต้ชั้นอุปกรณ์ แต่ยังรับ hover/click บริเวณที่ไม่ทับอุปกรณ์ได้ */
+.wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: auto;
+}
 
 .wire {
   fill: none;
@@ -50,11 +240,279 @@ textarea{width:100%;height:100%;resize:none;border:0;outline:0;padding:10px 14px
 .preview-wire {
   stroke-dasharray: 10 8;
   opacity: 0.75;
+  pointer-events: none;
 }
 
 .wire-selected {
   stroke-dasharray: 8 6;
   filter: drop-shadow(0 0 5px white);
+}
+
+.wire-green {
+  stroke: #008b27;
+}
+
+.wire-black {
+  stroke: #222;
+}
+
+.wire-red {
+  stroke: #d82828;
+}
+
+.wire-blue {
+  stroke: #1670c9;
+}
+
+.wire-yellow {
+  stroke: #d4a400;
+}
+
+.parts-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.part {
+  position: absolute;
+  cursor: move;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.part.selected {
+  outline: 3px dashed #2f8b57;
+  outline-offset: 4px;
+}
+
+.pin {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffd447;
+  border: 1px solid #333;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.pin:hover {
+  transform: scale(1.6);
+  background: #00e676;
+}
+
+.esp32-board {
+  width: 150px;
+  height: 300px;
+  background: #1b1b1b;
+  border: 4px solid #111;
+  border-radius: 8px;
+  box-shadow: 0 6px 12px #888;
+}
+
+.antenna {
+  height: 60px;
+  margin: 8px 18px 0;
+  border: 5px solid #444;
+  border-bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    #444 0 5px,
+    transparent 5px 18px
+  );
+}
+
+.esp-module {
+  margin: 0 auto;
+  width: 110px;
+  height: 90px;
+  background: #aaa;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+}
+
+.wifi {
+  font-size: 40px;
+  color: #888;
+  margin-top: -18px;
+}
+
+.usb {
+  position: absolute;
+  bottom: 0;
+  left: 54px;
+  width: 42px;
+  height: 30px;
+  background: #eee;
+  border-radius: 6px 6px 0 0;
+}
+
+.chip {
+  position: absolute;
+  bottom: 64px;
+  left: 49px;
+  width: 52px;
+  height: 46px;
+  background: #333;
+  border-radius: 4px;
+}
+
+.led-part {
+  width: 46px;
+  height: 86px;
+}
+
+.led-head {
+  position: absolute;
+  left: 9px;
+  top: 0;
+  width: 29px;
+  height: 39px;
+  border-radius: 16px 16px 5px 5px;
+}
+
+.led-leg {
+  position: absolute;
+  top: 36px;
+  width: 4px;
+  height: 49px;
+  background: #999;
+}
+
+.led-leg.a {
+  left: 16px;
+}
+
+.led-leg.c {
+  left: 30px;
+}
+
+.resistor-part {
+  width: 110px;
+  height: 42px;
+}
+
+.res-wire {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 20px;
+  height: 4px;
+  background: #999;
+}
+
+.res-body {
+  position: absolute;
+  left: 31px;
+  top: 6px;
+  width: 48px;
+  height: 30px;
+  border-radius: 14px;
+  background: #f0d58a;
+  border-left: 6px solid #9a481e;
+  border-right: 6px solid #222;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+}
+
+.res-body::after {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 0;
+  width: 6px;
+  height: 30px;
+  background: red;
+}
+
+.button-part {
+  width: 76px;
+  height: 56px;
+  background: #ddd;
+  border: 4px solid #aaa;
+  border-radius: 4px;
+}
+
+.button-core {
+  position: absolute;
+  left: 20px;
+  top: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 8px #003;
+}
+
+.lcd-part {
+  width: 150px;
+  height: 62px;
+  background: #123f16;
+  border: 6px solid #09933d;
+  color: #b9ff8b;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.oled-part {
+  width: 106px;
+  height: 58px;
+  background: #064d85;
+  border: 5px solid #111;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.sensor-part {
+  width: 108px;
+  height: 58px;
+  background: #20507b;
+  border: 4px solid #111;
+  border-radius: 8px;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.property-bar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 118px;
+  height: 70px;
+  background: #2b2b2b;
+  color: white;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  z-index: 40;
+  box-shadow: 0 3px 8px #888;
+}
+
+.property-bar input {
+  width: 140px;
+  background: #1b1b1b;
+  border: 1px solid #555;
+  color: white;
+  padding: 10px;
+  font-size: 18px;
+}
+
+.property-bar button {
+  background: #444;
+  color: white;
+  border-radius: 5px;
+  padding: 10px;
 }
 
 .wire-property-bar {
@@ -70,7 +528,7 @@ textarea{width:100%;height:100%;resize:none;border:0;outline:0;padding:10px 14px
   align-items: center;
   gap: 12px;
   padding: 10px 18px;
-  z-index: 30;
+  z-index: 45;
   box-shadow: 0 4px 10px #888;
 }
 
@@ -105,8 +563,75 @@ textarea{width:100%;height:100%;resize:none;border:0;outline:0;padding:10px 14px
   color: #111;
 }
 
-.cancel {
-  background: #d93636;
+.parts-panel {
+  position: absolute;
+  left: 50%;
+  top: 22px;
+  transform: translateX(-50%);
+  width: 520px;
+  height: calc(100vh - 90px);
+  background: linear-gradient(#272727, #1e1e1e);
+  color: white;
+  box-shadow: 0 8px 22px #555;
+  border-radius: 4px;
+  padding: 16px 20px;
+  overflow: auto;
+  z-index: 60;
+}
+
+.search {
+  height: 48px;
+  border-bottom: 1px solid #777;
+  display: flex;
+  align-items: center;
+}
+
+.search input {
+  flex: 1;
+  background: #222;
+  border: 0;
+  color: white;
+  font-size: 16px;
+  padding: 12px;
+  outline: 0;
+}
+
+.group {
+  background: #101010;
+  margin: 18px 0 0;
+  padding: 18px 20px;
+  color: #eee;
+  font-weight: 800;
+}
+
+.part-item {
+  width: 100%;
+  height: 68px;
+  background: transparent;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding-left: 22px;
+  font-size: 18px;
+}
+
+.part-item:hover {
+  background: #363636;
+}
+
+.part-item span {
+  width: 45px;
+  font-size: 28px;
+}
+
+.close-parts {
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px;
+  background: #444;
+  color: white;
+  border-radius: 8px;
 }
 
 .pin-tooltip {
@@ -117,8 +642,43 @@ textarea{width:100%;height:100%;resize:none;border:0;outline:0;padding:10px 14px
   font-weight: bold;
   padding: 6px 9px;
   border-radius: 6px;
-  z-index: 50;
+  z-index: 70;
   pointer-events: none;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
+}
+
+.serial {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  height: 60px;
+  margin: 0;
+  background: #111;
+  color: #00ff88;
+  padding: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 5;
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .editor {
+    min-width: 0;
+    height: 45vh;
+  }
+
+  .sim-area {
+    height: 60vh;
+  }
+
+  .parts-panel {
+    width: 90%;
+    height: 75%;
+  }
 }

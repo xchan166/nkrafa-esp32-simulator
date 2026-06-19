@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Play,
@@ -13,6 +13,10 @@ import "./style.css";
 
 const APP_NAME = "NKRAFA ESP32 Simulator";
 const STORAGE_KEY = "nkrafa-esp32-simulator-diagram";
+const GRID_SIZE = 10;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+
 
 const starterSketch = `void setup() {
   Serial.begin(115200);
@@ -180,7 +184,7 @@ function getPinPoint(diagram, ref) {
   };
 }
 
-function snapPoint(p, grid = 20) {
+function snapPoint(p, grid = GRID_SIZE) {
   return {
     x: Math.round(p.x / grid) * grid,
     y: Math.round(p.y / grid) * grid
@@ -383,6 +387,10 @@ function App() {
   const [selectedWireId, setSelectedWireId] = useState(null);
   const [hoveredWireId, setHoveredWireId] = useState(null);
   const [hoveredPin, setHoveredPin] = useState(null);
+  const [zoom, setZoom] = useState(1);
+
+  const [history, setHistory] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
 
   const [partsOpen, setPartsOpen] = useState(false);
 
@@ -400,9 +408,117 @@ function App() {
   const editorText = tab === "json" ? jsonText : sketch;
   const lineCount = editorText.split("\n").length;
 
-  function updateDiagram(next) {
+  function applyDiagram(next) {
     setDiagram(next);
     setJsonText(JSON.stringify(next, null, 2));
+  }
+
+  function updateDiagram(next, options = { saveHistory: true }) {
+    if (options.saveHistory) {
+      setHistory((old) => [
+        ...old,
+        JSON.stringify(diagram)
+      ].slice(-50));
+      setRedoStack([]);
+    }
+
+    applyDiagram(next);
+  }
+
+  function undo() {
+    if (!history.length) {
+      setSerial("Nothing to undo");
+      return;
+    }
+
+    const previous = history[history.length - 1];
+
+    setRedoStack((old) => [
+      ...old,
+      JSON.stringify(diagram)
+    ].slice(-50));
+
+    setHistory((old) => old.slice(0, -1));
+    applyDiagram(JSON.parse(previous));
+    setSelectedId(null);
+    setSelectedWireId(null);
+    cancelWire();
+    setSerial("Undo");
+  }
+
+  function redo() {
+    if (!redoStack.length) {
+      setSerial("Nothing to redo");
+      return;
+    }
+
+    const next = redoStack[redoStack.length - 1];
+
+    setHistory((old) => [
+      ...old,
+      JSON.stringify(diagram)
+    ].slice(-50));
+
+    setRedoStack((old) => old.slice(0, -1));
+    applyDiagram(JSON.parse(next));
+    setSelectedId(null);
+    setSelectedWireId(null);
+    cancelWire();
+    setSerial("Redo");
+  }
+
+  function makeUniquePartId(type) {
+    const base = type
+      .replace(/^nk-/, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .slice(0, 10)
+      .toLowerCase();
+
+    let n = diagram.parts.length + 1;
+    let id = `${base}${n}`;
+
+    while (diagram.parts.some((p) => p.id === id)) {
+      n += 1;
+      id = `${base}${n}`;
+    }
+
+    return id;
+  }
+
+  function duplicateSelected() {
+    if (!selectedId) return;
+
+    const part = diagram.parts.find((p) => p.id === selectedId);
+    if (!part) return;
+
+    const copy = {
+      ...part,
+      id: makeUniquePartId(part.type),
+      left: snapPoint({ x: part.left + 30, y: part.top + 30 }).x,
+      top: snapPoint({ x: part.left + 30, y: part.top + 30 }).y,
+      attrs: { ...(part.attrs || {}) }
+    };
+
+    updateDiagram({
+      ...diagram,
+      parts: [...diagram.parts, copy]
+    });
+
+    setSelectedId(copy.id);
+    setSelectedWireId(null);
+    setSerial(`Duplicated ${part.id} → ${copy.id}`);
+  }
+
+  function zoomIn() {
+    setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + 0.1) * 10) / 10));
+  }
+
+  function zoomOut() {
+    setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - 0.1) * 10) / 10));
+  }
+
+  function resetZoom() {
+    setZoom(1);
   }
 
   function onEditorChange(value) {
@@ -414,7 +530,7 @@ function App() {
     setJsonText(value);
 
     try {
-      setDiagram(JSON.parse(value));
+      updateDiagram(JSON.parse(value), { saveHistory: false });
     } catch {
       // Allow temporary invalid JSON while typing.
     }
@@ -425,11 +541,7 @@ function App() {
 
     if (!template) return;
 
-    const id = `${type
-      .replace(/^nk-/, "")
-      .replace(/[^a-z0-9]/gi, "")
-      .slice(0, 10)
-      .toLowerCase()}${diagram.parts.length + 1}`;
+    const id = makeUniquePartId(type);
 
     const next = {
       ...diagram,
@@ -495,6 +607,12 @@ function App() {
 
     if (!part) return;
 
+    setHistory((old) => [
+      ...old,
+      JSON.stringify(diagram)
+    ].slice(-50));
+    setRedoStack([]);
+
     dragRef.current = {
       id,
       x: e.clientX,
@@ -521,8 +639,8 @@ function App() {
         p.id === drag.id
           ? {
               ...p,
-              left: Math.round(drag.left + e.clientX - drag.x),
-              top: Math.round(drag.top + e.clientY - drag.y)
+              left: snapPoint({ x: drag.left + e.clientX - drag.x, y: 0 }).x,
+              top: snapPoint({ x: 0, y: drag.top + e.clientY - drag.y }).y
             }
           : p
       )
@@ -628,10 +746,15 @@ function App() {
   }
 
   function cancelWire() {
+    const hadWire = Boolean(wireStart);
+
     setWireStart(null);
     setWirePoints([]);
     setMousePoint(null);
-    setSerial("Wire cancelled");
+
+    if (hadWire) {
+      setSerial("Wire cancelled");
+    }
   }
 
   const selectedPart = diagram.parts.find(
@@ -695,6 +818,68 @@ function App() {
     setSerial("Copied diagram.json to clipboard");
   }
 
+  useEffect(() => {
+    function handleKeyDown(e) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+
+      if (tag === "textarea" || tag === "input") return;
+
+      if (e.ctrlKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      if (e.ctrlKey && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      if (e.ctrlKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSelectedId(null);
+        setSelectedWireId(null);
+        cancelWire();
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+
+        if (selectedWireId !== null) {
+          deleteSelectedWire();
+          return;
+        }
+
+        if (selectedId) {
+          deleteSelected();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    selectedId,
+    selectedWireId,
+    diagram,
+    wireStart,
+    history,
+    redoStack
+  ]);
+
+  /* ===== จบส่วนที่เพิ่ม ===== */
+
   return (
     <div>
       <header className="topbar">
@@ -752,6 +937,16 @@ function App() {
 
         <section
           className="sim-area"
+          onWheel={(e) => {
+            if (!e.ctrlKey) return;
+
+            e.preventDefault();
+
+            setZoom((z) => {
+              const next = z - e.deltaY * 0.001;
+              return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next));
+            });
+          }}
           onClick={(e) => {
             if (!wireStart || !mousePoint) {
               setSelectedId(null);
@@ -762,8 +957,8 @@ function App() {
             const rect = e.currentTarget.getBoundingClientRect();
 
             const p = snapPoint({
-              x: e.clientX - rect.left,
-              y: e.clientY - rect.top
+              x: (e.clientX - rect.left) / zoom,
+              y: (e.clientY - rect.top) / zoom
             });
 
             setWirePoints((old) => [...old, p]);
@@ -780,8 +975,8 @@ function App() {
             const rect = e.currentTarget.getBoundingClientRect();
 
             const p = snapPoint({
-              x: e.clientX - rect.left,
-              y: e.clientY - rect.top
+              x: (e.clientX - rect.left) / zoom,
+              y: (e.clientY - rect.top) / zoom
             });
 
             setMousePoint(p);
@@ -825,12 +1020,25 @@ function App() {
             )}
           </div>
 
+          <div className="zoom-controls" onClick={(e) => e.stopPropagation()}>
+            <button onClick={zoomOut}>−</button>
+            <button onClick={resetZoom}>{Math.round(zoom * 100)}%</button>
+            <button onClick={zoomIn}>+</button>
+          </div>
+
           {wireStart && (
             <div className="wire-help">
               กำลังลากสายจาก {wireStart} | คลิกพื้นที่ว่างเพื่อหักมุม | คลิก pin ปลายทางเพื่อจบสาย | ดับเบิลคลิกเพื่อยกเลิก
             </div>
           )}
 
+          <div
+            className="canvas-layer"
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: "top left"
+            }}
+          >
           <svg className="wires">
             {previewWire && (
               <path
@@ -887,6 +1095,7 @@ function App() {
                 onPinLeave={() => setHoveredPin(null)}
               />
             ))}
+          </div>
           </div>
 
           {selectedPart && (
