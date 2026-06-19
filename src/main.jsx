@@ -202,14 +202,14 @@ function makePolylinePath(points) {
   ].join(" ");
 }
 
-function makeSmartWirePath(start, waypoints, end) {
+function makeSmartWirePoints(start, waypoints, end) {
   const points = [
     snapPoint(start),
     ...(waypoints || []).map((p) => snapPoint(p)),
     snapPoint(end)
   ];
 
-  if (points.length < 2) return "";
+  if (points.length < 2) return [];
 
   const pathPoints = [points[0]];
 
@@ -229,7 +229,102 @@ function makeSmartWirePath(start, waypoints, end) {
     }
   }
 
-  return makePolylinePath(pathPoints);
+  return cleanWirePathPoints(pathPoints);
+}
+
+function makeSmartWirePath(start, waypoints, end) {
+  return makePolylinePath(makeSmartWirePoints(start, waypoints, end));
+}
+
+function cleanWirePathPoints(points) {
+  if (!Array.isArray(points) || points.length <= 2) return points || [];
+
+  const deduped = [];
+
+  for (const p of points) {
+    const last = deduped[deduped.length - 1];
+
+    if (!last || last.x !== p.x || last.y !== p.y) {
+      deduped.push(p);
+    }
+  }
+
+  if (deduped.length <= 2) return deduped;
+
+  const cleaned = [deduped[0]];
+
+  for (let i = 1; i < deduped.length - 1; i++) {
+    const prev = cleaned[cleaned.length - 1];
+    const current = deduped[i];
+    const next = deduped[i + 1];
+
+    const sameVertical = prev.x === current.x && current.x === next.x;
+    const sameHorizontal = prev.y === current.y && current.y === next.y;
+
+    if (!sameVertical && !sameHorizontal) {
+      cleaned.push(current);
+    }
+  }
+
+  cleaned.push(deduped[deduped.length - 1]);
+
+  return cleaned;
+}
+
+function bendWireSegmentInDiagram(diagram, wireIndex, segmentIndex, rawPoint) {
+  const connection = diagram.connections[wireIndex];
+
+  if (!connection || connection[0]?.includes("$") || connection[1]?.includes("$")) {
+    return diagram;
+  }
+
+  const start = getPinPoint(diagram, connection[0]);
+  const end = getPinPoint(diagram, connection[1]);
+
+  if (!start || !end) return diagram;
+
+  const waypoints = Array.isArray(connection[3]) ? connection[3] : [];
+  const pathPoints = makeSmartWirePoints(start, waypoints, end);
+
+  if (segmentIndex < 0 || segmentIndex >= pathPoints.length - 1) {
+    return diagram;
+  }
+
+  const p0 = pathPoints[segmentIndex];
+  const p1 = pathPoints[segmentIndex + 1];
+  const p = snapPoint(rawPoint);
+
+  let replacement;
+
+  if (p0.x === p1.x) {
+    replacement = [
+      { x: p.x, y: p0.y },
+      { x: p.x, y: p1.y }
+    ];
+  } else {
+    replacement = [
+      { x: p0.x, y: p.y },
+      { x: p1.x, y: p.y }
+    ];
+  }
+
+  const nextPathPoints = [
+    ...pathPoints.slice(0, segmentIndex),
+    ...replacement,
+    ...pathPoints.slice(segmentIndex + 2)
+  ];
+
+  const cleaned = cleanWirePathPoints(nextPathPoints);
+  const nextWaypoints = cleaned.slice(1, -1);
+
+  const nextConnections = diagram.connections.map((c, i) =>
+    i === wireIndex ? [c[0], c[1], c[2] || "green", nextWaypoints] : c
+  );
+
+  return {
+    ...diagram,
+    connections: nextConnections
+  };
 }
 
 function partClass(type) {
@@ -388,6 +483,7 @@ function App() {
   const [hoveredWireId, setHoveredWireId] = useState(null);
   const [hoveredPin, setHoveredPin] = useState(null);
   const [zoom, setZoom] = useState(1);
+  const [dragPoint, setDragPoint] = useState(null);
 
   const [history, setHistory] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
@@ -519,6 +615,43 @@ function App() {
 
   function resetZoom() {
     setZoom(1);
+  }
+
+  function beginWireControlDrag(e, wireIndex, segmentIndex) {
+    e.stopPropagation();
+
+    setHistory((old) => [
+      ...old,
+      JSON.stringify(diagram)
+    ].slice(-50));
+
+    setRedoStack([]);
+    setSelectedWireId(wireIndex);
+    setSelectedId(null);
+    setDragPoint({
+      wire: wireIndex,
+      segment: segmentIndex
+    });
+  }
+
+  function updateWireControlDrag(point) {
+    if (!dragPoint) return;
+
+    setDiagram((old) => {
+      const next = bendWireSegmentInDiagram(
+        old,
+        dragPoint.wire,
+        dragPoint.segment,
+        point
+      );
+
+      setJsonText(JSON.stringify(next, null, 2));
+      return next;
+    });
+  }
+
+  function stopWireControlDrag() {
+    setDragPoint(null);
   }
 
   function onEditorChange(value) {
@@ -782,10 +915,13 @@ function App() {
 
           const waypoints = Array.isArray(c[3]) ? c[3] : [];
 
+          const points = makeSmartWirePoints(a, waypoints, b);
+
           return {
             id: connectionIndex,
             connectionIndex,
-            d: makeSmartWirePath(a, waypoints, b),
+            d: makePolylinePath(points),
+            points,
             color: c[2] || "green"
           };
         })
@@ -878,6 +1014,14 @@ function App() {
     redoStack
   ]);
 
+  useEffect(() => {
+    window.addEventListener("mouseup", stopWireControlDrag);
+
+    return () => {
+      window.removeEventListener("mouseup", stopWireControlDrag);
+    };
+  }, []);
+
   /* ===== จบส่วนที่เพิ่ม ===== */
 
   return (
@@ -948,6 +1092,8 @@ function App() {
             });
           }}
           onClick={(e) => {
+            if (dragPoint) return;
+
             if (!wireStart || !mousePoint) {
               setSelectedId(null);
               setSelectedWireId(null);
@@ -970,8 +1116,6 @@ function App() {
             cancelWire();
           }}
           onMouseMove={(e) => {
-            if (!wireStart) return;
-
             const rect = e.currentTarget.getBoundingClientRect();
 
             const p = snapPoint({
@@ -979,8 +1123,16 @@ function App() {
               y: (e.clientY - rect.top) / zoom
             });
 
+            if (dragPoint) {
+              updateWireControlDrag(p);
+              return;
+            }
+
+            if (!wireStart) return;
+
             setMousePoint(p);
           }}
+          onMouseUp={stopWireControlDrag}
         >
           <div className="sim-title">Simulation</div>
 
@@ -1075,6 +1227,32 @@ function App() {
                       : ""
                   }`}
                 />
+
+                {selectedWireId === w.connectionIndex &&
+                  (w.points || []).slice(0, -1).map((p0, segmentIndex) => {
+                    const p1 = w.points[segmentIndex + 1];
+
+                    if (!p1 || (p0.x === p1.x && p0.y === p1.y)) {
+                      return null;
+                    }
+
+                    return (
+                      <circle
+                        key={`control-${segmentIndex}`}
+                        className="wire-control-point"
+                        cx={(p0.x + p1.x) / 2}
+                        cy={(p0.y + p1.y) / 2}
+                        r="8"
+                        onMouseDown={(e) =>
+                          beginWireControlDrag(
+                            e,
+                            w.connectionIndex,
+                            segmentIndex
+                          )
+                        }
+                      />
+                    );
+                  })}
               </g>
             ))}
           </svg>

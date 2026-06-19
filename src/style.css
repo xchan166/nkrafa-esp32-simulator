@@ -682,3 +682,16 @@ textarea {
     height: 75%;
   }
 }
+
+.wire-control-point {
+  fill: rgba(190, 75, 255, 0.75);
+  stroke: white;
+  stroke-width: 2;
+  cursor: move;
+  pointer-events: auto;
+}
+
+.wire-control-point:hover {
+  fill: rgba(255, 90, 255, 0.95);
+  r: 10;
+}
