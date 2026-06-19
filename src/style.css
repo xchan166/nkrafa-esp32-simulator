@@ -36,3 +36,89 @@ textarea{width:100%;height:100%;resize:none;border:0;outline:0;padding:10px 14px
 .close-parts{margin-top:14px;width:100%;padding:12px;background:#444;color:white;border-radius:8px}
 .serial{position:absolute;left:18px;right:18px;bottom:16px;height:60px;margin:0;background:#111;color:#00ff88;padding:14px;border-radius:8px;overflow:hidden;z-index:5}
 @media(max-width:900px){.app{grid-template-columns:1fr}.editor{min-width:0;height:45vh}.sim-area{height:60vh}.parts-panel{width:90%;height:75%}}
+
+/* ===== Wire Editor Pro ===== */
+
+.wire {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.preview-wire {
+  stroke-dasharray: 10 8;
+  opacity: 0.75;
+}
+
+.wire-selected {
+  stroke-dasharray: 8 6;
+  filter: drop-shadow(0 0 5px white);
+}
+
+.wire-property-bar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 118px;
+  height: 70px;
+  background: #2b2b2b;
+  color: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  z-index: 30;
+  box-shadow: 0 4px 10px #888;
+}
+
+.wire-property-bar button {
+  background: #444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.color-btn.green {
+  background: #008b27;
+}
+
+.color-btn.red {
+  background: #d93636;
+}
+
+.color-btn.black {
+  background: #111;
+}
+
+.color-btn.blue-wire-btn {
+  background: #1670c9;
+}
+
+.color-btn.yellow {
+  background: #d4a400;
+  color: #111;
+}
+
+.cancel {
+  background: #d93636;
+}
+
+.pin-tooltip {
+  position: absolute;
+  background: #111;
+  color: #00ff88;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 6px 9px;
+  border-radius: 6px;
+  z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+  white-space: nowrap;
+}
