@@ -30,7 +30,7 @@ void loop() {
 const templates = {
   "nk-led": { type: "nk-led", attrs: { color: "red" } },
   "nk-resistor": { type: "nk-resistor", attrs: { value: "1000" } },
-  "nk-pushbutton": { type: "nk-pushbutton", attrs: { color: "green" } },
+  "nk-pushbutton": { type: "nk-pushbutton", attrs: { color: "green", pressed: false } },
   "nk-dht22": { type: "nk-dht22", attrs: {} },
   "nk-hc-sr04": { type: "nk-hc-sr04", attrs: {} },
   "nk-lcd1602-i2c": { type: "nk-lcd1602-i2c", attrs: { address: "0x27" } },
@@ -404,7 +404,9 @@ function PartView({
 
       {part.type.includes("pushbutton") && (
         <div
-          className="button-core"
+          className={`button-core ${
+            part.attrs?.pressed ? "pressed" : ""
+          }`}
           style={{ background: color }}
         />
       )}
@@ -819,6 +821,33 @@ function App() {
     });
 
     setSelectedId(null);
+  }
+
+  function toggleButtonPressed() {
+    if (!selectedId) return;
+
+    const part = diagram.parts.find((p) => p.id === selectedId);
+
+    if (!part || !part.type.includes("pushbutton")) return;
+
+    updateDiagram({
+      ...diagram,
+      parts: diagram.parts.map((p) => {
+        if (p.id !== selectedId) return p;
+
+        return {
+          ...p,
+          attrs: {
+            ...(p.attrs || {}),
+            pressed: !p.attrs?.pressed
+          }
+        };
+      })
+    });
+
+    setSerial(
+      `${part.id}: ${part.attrs?.pressed ? "Released" : "Pressed"}`
+    );
   }
 
   function updateAttr(value) {
@@ -1294,6 +1323,17 @@ function App() {
                 onChange={(e) => updateAttr(e.target.value)}
                 placeholder="color / value"
               />
+
+              {selectedPart.type.includes("pushbutton") && (
+                <button
+                  className={`button-state-btn ${
+                    selectedPart.attrs?.pressed ? "pressed" : ""
+                  }`}
+                  onClick={toggleButtonPressed}
+                >
+                  {selectedPart.attrs?.pressed ? "Release" : "Press"}
+                </button>
+              )}
 
               <button onClick={rotateSelected}>
                 <RotateCw size={18} />
