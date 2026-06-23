@@ -32,7 +32,7 @@ const templates = {
   "nk-resistor": { type: "nk-resistor", attrs: { value: "1000" } },
   "nk-pushbutton": { type: "nk-pushbutton", attrs: { color: "green", pressed: false } },
   "nk-potentiometer": { type: "nk-potentiometer", attrs: { value: "2048", max: "4095" } },
-  "nk-dht22": { type: "nk-dht22", attrs: {} },
+  "nk-dht22": { type: "nk-dht22", attrs: { temperature: "25.0", humidity: "60" } },
   "nk-hc-sr04": { type: "nk-hc-sr04", attrs: {} },
   "nk-lcd1602-i2c": { type: "nk-lcd1602-i2c", attrs: { address: "0x27" } },
   "nk-ssd1306": { type: "nk-ssd1306", attrs: { i2cAddress: "0x3C" } }
@@ -451,7 +451,13 @@ function PartView({
       )}
 
       {part.type.includes("dht22") && (
-        <div className="sensor-label">DHT22</div>
+        <>
+          <div className="dht-label">DHT22</div>
+          <div className="dht-screen">
+            <div>{part.attrs?.temperature || "25.0"}°C</div>
+            <div>{part.attrs?.humidity || "60"}%RH</div>
+          </div>
+        </>
       )}
 
       {part.type.includes("hc-sr04") && (
@@ -931,6 +937,51 @@ function App() {
     setSerial(`${selectedId}: analog value = ${numericValue}`);
   }
 
+  function updateDht22Value(key, value) {
+    if (!selectedId) return;
+
+    const limits = {
+      temperature: { min: -40, max: 80, digits: 1 },
+      humidity: { min: 0, max: 100, digits: 0 }
+    };
+
+    const config = limits[key];
+    if (!config) return;
+
+    const numericValue = Math.max(
+      config.min,
+      Math.min(config.max, Number(value) || 0)
+    );
+
+    const formattedValue =
+      config.digits === 0
+        ? String(Math.round(numericValue))
+        : numericValue.toFixed(config.digits);
+
+    updateDiagram({
+      ...diagram,
+      parts: diagram.parts.map((p) => {
+        if (p.id !== selectedId) return p;
+
+        return {
+          ...p,
+          attrs: {
+            ...(p.attrs || {}),
+            [key]: formattedValue
+          }
+        };
+      })
+    });
+
+    setSerial(
+      `${selectedId}: temperature = ${
+        key === "temperature" ? formattedValue : selectedPart?.attrs?.temperature || "25.0"
+      }°C, humidity = ${
+        key === "humidity" ? formattedValue : selectedPart?.attrs?.humidity || "60"
+      }%`
+    );
+  }
+
   function updateWireColor(color) {
     if (selectedWireId === null) return;
 
@@ -1386,6 +1437,54 @@ function App() {
                     max="4095"
                     value={selectedPart.attrs?.value || "2048"}
                     onChange={(e) => updatePotentiometerValue(e.target.value)}
+                  />
+                </div>
+              ) : selectedPart.type.includes("dht22") ? (
+                <div className="dht-property">
+                  <label>Temp</label>
+                  <input
+                    type="range"
+                    min="-40"
+                    max="80"
+                    step="0.1"
+                    value={selectedPart.attrs?.temperature || "25.0"}
+                    onChange={(e) =>
+                      updateDht22Value("temperature", e.target.value)
+                    }
+                  />
+                  <input
+                    className="dht-number"
+                    type="number"
+                    min="-40"
+                    max="80"
+                    step="0.1"
+                    value={selectedPart.attrs?.temperature || "25.0"}
+                    onChange={(e) =>
+                      updateDht22Value("temperature", e.target.value)
+                    }
+                  />
+
+                  <label>Humidity</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={selectedPart.attrs?.humidity || "60"}
+                    onChange={(e) =>
+                      updateDht22Value("humidity", e.target.value)
+                    }
+                  />
+                  <input
+                    className="dht-number"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={selectedPart.attrs?.humidity || "60"}
+                    onChange={(e) =>
+                      updateDht22Value("humidity", e.target.value)
+                    }
                   />
                 </div>
               ) : (
