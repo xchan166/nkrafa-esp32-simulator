@@ -448,6 +448,87 @@ textarea {
   box-shadow: inset 0 0 8px #003;
 }
 
+.potentiometer-part {
+  width: 96px;
+  height: 78px;
+  background: #e5e5e5;
+  border: 4px solid #555;
+  border-radius: 8px;
+  box-shadow: 0 4px 9px rgba(0, 0, 0, 0.22);
+}
+
+.pot-label {
+  position: absolute;
+  left: 8px;
+  top: 5px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #333;
+}
+
+.pot-body {
+  position: absolute;
+  left: 27px;
+  top: 15px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f7f7f7, #888);
+  border: 4px solid #333;
+  display: grid;
+  place-items: center;
+}
+
+.pot-knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #222;
+  position: relative;
+}
+
+.pot-indicator {
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  width: 4px;
+  height: 12px;
+  background: #00ff88;
+  border-radius: 4px;
+}
+
+.pot-value {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #222;
+}
+
+.pot-property {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-weight: 800;
+}
+
+.pot-property input[type="range"] {
+  width: 180px;
+}
+
+.pot-property .pot-number {
+  width: 92px;
+  background: #1b1b1b;
+  border: 1px solid #555;
+  color: white;
+  padding: 9px;
+  font-size: 16px;
+}
+
 .lcd-part {
   width: 150px;
   height: 62px;

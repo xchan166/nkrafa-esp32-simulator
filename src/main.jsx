@@ -31,6 +31,7 @@ const templates = {
   "nk-led": { type: "nk-led", attrs: { color: "red" } },
   "nk-resistor": { type: "nk-resistor", attrs: { value: "1000" } },
   "nk-pushbutton": { type: "nk-pushbutton", attrs: { color: "green", pressed: false } },
+  "nk-potentiometer": { type: "nk-potentiometer", attrs: { value: "2048", max: "4095" } },
   "nk-dht22": { type: "nk-dht22", attrs: {} },
   "nk-hc-sr04": { type: "nk-hc-sr04", attrs: {} },
   "nk-lcd1602-i2c": { type: "nk-lcd1602-i2c", attrs: { address: "0x27" } },
@@ -136,6 +137,14 @@ function pinDefs(part) {
       { name: "1.r", x: 76, y: 14 },
       { name: "2.l", x: 0, y: 42 },
       { name: "2.r", x: 76, y: 42 }
+    ];
+  }
+
+  if (part.type.includes("potentiometer")) {
+    return [
+      { name: "VCC", x: 18, y: 72 },
+      { name: "SIG", x: 48, y: 72 },
+      { name: "GND", x: 78, y: 72 }
     ];
   }
 
@@ -332,6 +341,7 @@ function partClass(type) {
   if (type.includes("led")) return "led-part";
   if (type.includes("resistor")) return "resistor-part";
   if (type.includes("pushbutton")) return "button-part";
+  if (type.includes("potentiometer")) return "potentiometer-part";
   if (type.includes("lcd")) return "lcd-part";
   if (type.includes("ssd1306")) return "oled-part";
   return "sensor-part";
@@ -409,6 +419,27 @@ function PartView({
           }`}
           style={{ background: color }}
         />
+      )}
+
+      {part.type.includes("potentiometer") && (
+        <>
+          <div className="pot-label">POT</div>
+          <div className="pot-body">
+            <div
+              className="pot-knob"
+              style={{
+                transform: `rotate(${Math.round(
+                  ((Number(part.attrs?.value || 0) / Number(part.attrs?.max || 4095)) * 270) - 135
+                )}deg)`
+              }}
+            >
+              <div className="pot-indicator" />
+            </div>
+          </div>
+          <div className="pot-value">
+            {part.attrs?.value || "2048"}
+          </div>
+        </>
       )}
 
       {part.type.includes("lcd") && (
@@ -860,7 +891,7 @@ function App() {
 
         const attrs = { ...(p.attrs || {}) };
 
-        if (p.type.includes("resistor")) {
+        if (p.type.includes("resistor") || p.type.includes("potentiometer")) {
           attrs.value = value;
         } else if (
           p.type.includes("led") ||
@@ -874,6 +905,30 @@ function App() {
         return { ...p, attrs };
       })
     });
+  }
+
+  function updatePotentiometerValue(value) {
+    if (!selectedId) return;
+
+    const numericValue = Math.max(0, Math.min(4095, Number(value) || 0));
+
+    updateDiagram({
+      ...diagram,
+      parts: diagram.parts.map((p) => {
+        if (p.id !== selectedId) return p;
+
+        return {
+          ...p,
+          attrs: {
+            ...(p.attrs || {}),
+            value: String(numericValue),
+            max: p.attrs?.max || "4095"
+          }
+        };
+      })
+    });
+
+    setSerial(`${selectedId}: analog value = ${numericValue}`);
   }
 
   function updateWireColor(color) {
@@ -1313,16 +1368,38 @@ function App() {
               <b>{selectedPart.type}</b>
               <span>{selectedPart.id}</span>
 
-              <input
-                value={
-                  selectedPart.attrs?.value ||
-                  selectedPart.attrs?.color ||
-                  selectedPart.attrs?.address ||
-                  ""
-                }
-                onChange={(e) => updateAttr(e.target.value)}
-                placeholder="color / value"
-              />
+              {selectedPart.type.includes("potentiometer") ? (
+                <div className="pot-property">
+                  <label>Analog</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="4095"
+                    step="1"
+                    value={selectedPart.attrs?.value || "2048"}
+                    onChange={(e) => updatePotentiometerValue(e.target.value)}
+                  />
+                  <input
+                    className="pot-number"
+                    type="number"
+                    min="0"
+                    max="4095"
+                    value={selectedPart.attrs?.value || "2048"}
+                    onChange={(e) => updatePotentiometerValue(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <input
+                  value={
+                    selectedPart.attrs?.value ||
+                    selectedPart.attrs?.color ||
+                    selectedPart.attrs?.address ||
+                    ""
+                  }
+                  onChange={(e) => updateAttr(e.target.value)}
+                  placeholder="color / value"
+                />
+              )}
 
               {selectedPart.type.includes("pushbutton") && (
                 <button
@@ -1428,6 +1505,12 @@ function App() {
                 icon="🟢"
                 name="Pushbutton"
                 onClick={() => addPart("nk-pushbutton")}
+              />
+
+              <PartItem
+                icon="🎚️"
+                name="Potentiometer"
+                onClick={() => addPart("nk-potentiometer")}
               />
 
               <PartItem
