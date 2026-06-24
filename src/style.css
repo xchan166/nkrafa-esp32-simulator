@@ -373,6 +373,19 @@ textarea {
   width: 29px;
   height: 39px;
   border-radius: 16px 16px 5px 5px;
+  border: 2px solid rgba(120, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.led-shine {
+  position: absolute;
+  left: 7px;
+  top: 5px;
+  width: 10px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: rotate(25deg);
 }
 
 .led-leg {
@@ -842,4 +855,39 @@ textarea {
 
 .button-state-btn.pressed {
   background: #d93636 !important;
+}
+
+
+/* ===== Sprint 5.1 Virtual GPIO LED Engine ===== */
+.led-head.led-off {
+  opacity: 0.65;
+  filter: saturate(0.75) brightness(0.9);
+  box-shadow: none;
+}
+
+.led-head.led-off .led-shine {
+  opacity: 0.25;
+}
+
+.led-head.led-on {
+  opacity: 1;
+  filter: saturate(1.4) brightness(1.35);
+  box-shadow:
+    0 0 18px currentColor,
+    0 0 34px currentColor,
+    0 0 54px rgba(255, 0, 0, 0.45);
+}
+
+.led-head.led-on .led-shine {
+  opacity: 0.9;
+}
+
+
+/* ===== Sprint 5.2 LED Blink Runtime ===== */
+.stop {
+  background: #d93636;
+}
+
+.stop:hover {
+  filter: brightness(1.08);
 }

@@ -7,6 +7,7 @@ import {
   Share2,
   Trash2,
   RotateCw,
+  Square,
   X
 } from "lucide-react";
 import "./style.css";
@@ -177,6 +178,41 @@ function pinDefs(part) {
   return [];
 }
 
+function partSize(part) {
+  if (part.type.includes("esp32")) return { width: 150, height: 300 };
+  if (part.type.includes("led")) return { width: 46, height: 86 };
+  if (part.type.includes("resistor")) return { width: 110, height: 42 };
+  if (part.type.includes("pushbutton")) return { width: 76, height: 56 };
+  if (part.type.includes("potentiometer")) return { width: 96, height: 78 };
+  if (part.type.includes("lcd")) return { width: 150, height: 62 };
+  if (part.type.includes("ssd1306")) return { width: 106, height: 58 };
+  return { width: 108, height: 58 };
+}
+
+function rotateLocalPoint(part, pin) {
+  const rotate = Number(part.rotate || 0);
+  const size = partSize(part);
+
+  const x = part.left + pin.x;
+  const y = part.top + pin.y;
+
+  if (!rotate) {
+    return { x, y };
+  }
+
+  const cx = part.left + size.width / 2;
+  const cy = part.top + size.height / 2;
+  const angle = (rotate * Math.PI) / 180;
+
+  const dx = x - cx;
+  const dy = y - cy;
+
+  return {
+    x: cx + dx * Math.cos(angle) - dy * Math.sin(angle),
+    y: cy + dx * Math.sin(angle) + dy * Math.cos(angle)
+  };
+}
+
 function getPinPoint(diagram, ref) {
   const [id, pinName] = ref.split(":");
   const part = diagram.parts.find((p) => p.id === id);
@@ -187,10 +223,7 @@ function getPinPoint(diagram, ref) {
 
   if (!pin) return null;
 
-  return {
-    x: part.left + pin.x,
-    y: part.top + pin.y
-  };
+  return rotateLocalPoint(part, pin);
 }
 
 function snapPoint(p, grid = GRID_SIZE) {
@@ -336,6 +369,167 @@ function bendWireSegmentInDiagram(diagram, wireIndex, segmentIndex, rawPoint) {
   };
 }
 
+
+function getPinAliases(code) {
+  const aliases = {};
+
+  const defineRegex = /#define\s+([A-Za-z_][A-Za-z0-9_]*)\s+(\d+)/g;
+  let match;
+
+  while ((match = defineRegex.exec(code)) !== null) {
+    aliases[match[1]] = match[2];
+  }
+
+  const variableRegex = /(?:const\s+)?(?:int|byte|uint8_t|uint16_t|long)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\d+)\s*;/g;
+
+  while ((match = variableRegex.exec(code)) !== null) {
+    aliases[match[1]] = match[2];
+  }
+
+  return aliases;
+}
+
+function normalizePinToken(token, aliases = {}) {
+  const cleaned = String(token || "").trim();
+
+  if (aliases[cleaned]) return aliases[cleaned];
+
+  if (/^GPIO\d+$/i.test(cleaned)) {
+    return cleaned.replace(/GPIO/i, "");
+  }
+
+  return cleaned;
+}
+
+function parseDigitalWrites(code) {
+  const aliases = getPinAliases(code);
+  const state = {};
+  const writeRegex = /digitalWrite\s*\(\s*([A-Za-z_][A-Za-z0-9_]*|\d+)\s*,\s*(HIGH|LOW|1|0|true|false)\s*\)\s*;/gi;
+  let match;
+
+  while ((match = writeRegex.exec(code)) !== null) {
+    const pin = normalizePinToken(match[1], aliases);
+    const rawValue = match[2].toUpperCase();
+    state[pin] = rawValue === "HIGH" || rawValue === "1" || rawValue === "TRUE";
+  }
+
+  return state;
+}
+
+
+function parseRuntimeInstructions(code) {
+  const aliases = getPinAliases(code);
+  const instructions = [];
+
+  const runtimeRegex = /digitalWrite\s*\(\s*([A-Za-z_][A-Za-z0-9_]*|\d+)\s*,\s*(HIGH|LOW|1|0|true|false)\s*\)\s*;|delay\s*\(\s*(\d+)\s*\)\s*;/gi;
+
+  let match;
+
+  while ((match = runtimeRegex.exec(code)) !== null) {
+    if (match[1]) {
+      const pin = normalizePinToken(match[1], aliases);
+      const rawValue = match[2].toUpperCase();
+
+      instructions.push({
+        type: "write",
+        pin,
+        value: rawValue === "HIGH" || rawValue === "1" || rawValue === "TRUE"
+      });
+    } else if (match[3]) {
+      instructions.push({
+        type: "delay",
+        ms: Math.max(1, Number(match[3]) || 1)
+      });
+    }
+  }
+
+  return instructions;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(1, Number(ms) || 1));
+  });
+}
+
+function parseSerialPrints(code) {
+  const output = [];
+  const serialRegex = /Serial\.(?:print|println)\s*\(\s*"([^"]*)"\s*\)\s*;/g;
+  let match;
+
+  while ((match = serialRegex.exec(code)) !== null) {
+    output.push(match[1]);
+  }
+
+  return output;
+}
+
+function buildConnectionGraph(diagram) {
+  const graph = new Map();
+
+  function addNode(ref) {
+    if (!graph.has(ref)) graph.set(ref, new Set());
+  }
+
+  function addEdge(a, b) {
+    if (!a || !b || a.includes("$") || b.includes("$")) return;
+    addNode(a);
+    addNode(b);
+    graph.get(a).add(b);
+    graph.get(b).add(a);
+  }
+
+  (diagram.connections || []).forEach((connection) => {
+    if (!Array.isArray(connection)) return;
+    addEdge(connection[0], connection[1]);
+  });
+
+  (diagram.parts || []).forEach((part) => {
+    if (part.type.includes("resistor")) {
+      addEdge(`${part.id}:1`, `${part.id}:2`);
+    }
+
+    if (part.type.includes("pushbutton") && part.attrs?.pressed) {
+      addEdge(`${part.id}:1.l`, `${part.id}:1.r`);
+      addEdge(`${part.id}:2.l`, `${part.id}:2.r`);
+    }
+  });
+
+  return graph;
+}
+
+function getElectricalNet(graph, startRef) {
+  const visited = new Set();
+  const stack = [startRef];
+
+  while (stack.length) {
+    const current = stack.pop();
+
+    if (!current || visited.has(current)) continue;
+
+    visited.add(current);
+
+    const neighbors = graph.get(current);
+
+    if (!neighbors) continue;
+
+    neighbors.forEach((next) => {
+      if (!visited.has(next)) stack.push(next);
+    });
+  }
+
+  return visited;
+}
+
+function isGroundRef(ref) {
+  return /(^|:)GND(?:\.\d+)?$/i.test(ref || "");
+}
+
+function getEspPinFromRef(ref) {
+  if (!ref?.startsWith("esp:")) return null;
+  return ref.split(":")[1];
+}
+
 function partClass(type) {
   if (type.includes("esp32")) return "esp32-board";
   if (type.includes("led")) return "led-part";
@@ -354,7 +548,8 @@ function PartView({
   onDragStart,
   onPinClick,
   onPinHover,
-  onPinLeave
+  onPinLeave,
+  ledStates
 }) {
   const pins = pinDefs(part);
   const color = part.attrs?.color || "red";
@@ -392,12 +587,14 @@ function PartView({
       {part.type === "nk-led" && (
         <>
           <div
-            className="led-head"
+            className={`led-head ${ledStates?.[part.id] ? "led-on" : "led-off"}`}
             style={{
               background: color,
-              boxShadow: `0 0 14px ${color}`
+              color: color
             }}
-          />
+          >
+            <div className="led-shine" />
+          </div>
           <div className="led-leg a" />
           <div className="led-leg c" />
         </>
@@ -534,6 +731,9 @@ function App() {
   const [mousePoint, setMousePoint] = useState(null);
 
   const [serial, setSerial] = useState("Serial Monitor: Ready...");
+  const [gpioState, setGpioState] = useState({});
+  const [simRunning, setSimRunning] = useState(false);
+  const runtimeRef = useRef({ running: false });
   const [jsonText, setJsonText] = useState(
     JSON.stringify(diagram, null, 2)
   );
@@ -1029,6 +1229,34 @@ function App() {
     (p) => p.id === selectedId
   );
 
+  const ledStates = useMemo(() => {
+    const result = {};
+    const graph = buildConnectionGraph(diagram);
+
+    diagram.parts.forEach((part) => {
+      if (part.type !== "nk-led") return;
+
+      const anodeNet = getElectricalNet(graph, `${part.id}:A`);
+      const cathodeNet = getElectricalNet(graph, `${part.id}:C`);
+
+      let drivenHigh = false;
+      let hasGround = false;
+
+      anodeNet.forEach((ref) => {
+        const espPin = getEspPinFromRef(ref);
+        if (espPin && gpioState[espPin]) drivenHigh = true;
+      });
+
+      cathodeNet.forEach((ref) => {
+        if (isGroundRef(ref)) hasGround = true;
+      });
+
+      result[part.id] = drivenHigh && hasGround;
+    });
+
+    return result;
+  }, [diagram, gpioState]);
+
   const wires = useMemo(
     () =>
       (diagram.connections || [])
@@ -1076,6 +1304,93 @@ function App() {
       color: wireStart.includes("GND") ? "black" : "green"
     };
   }, [wireStart, wirePoints, mousePoint, diagram]);
+
+  function setPinState(pin, value) {
+    setGpioState((old) => ({
+      ...old,
+      [String(pin)]: Boolean(value)
+    }));
+  }
+
+  function stopSimulation(message = "Simulation stopped") {
+    runtimeRef.current.running = false;
+    setSimRunning(false);
+    setSerial(message);
+  }
+
+  async function runSimulation() {
+    runtimeRef.current.running = false;
+
+    await sleep(1);
+
+    const instructions = parseRuntimeInstructions(sketch);
+    const serialLines = parseSerialPrints(sketch);
+
+    if (!instructions.length) {
+      const nextGpioState = parseDigitalWrites(sketch);
+      setGpioState(nextGpioState);
+
+      const gpioLines = Object.entries(nextGpioState).map(
+        ([pin, value]) => `GPIO${pin} = ${value ? "HIGH" : "LOW"}`
+      );
+
+      setSerial(
+        [
+          "Serial Monitor:",
+          ...serialLines,
+          ...gpioLines,
+          "No delay() sequence found",
+          `Parts: ${diagram.parts.length}`,
+          `Wires: ${diagram.connections.length}`
+        ].join("\n")
+      );
+
+      return;
+    }
+
+    runtimeRef.current.running = true;
+    setSimRunning(true);
+
+    setSerial(
+      [
+        "Serial Monitor:",
+        ...serialLines,
+        "Simulation running...",
+        `Instructions: ${instructions.length}`
+      ].join("\n")
+    );
+
+    while (runtimeRef.current.running) {
+      for (const inst of instructions) {
+        if (!runtimeRef.current.running) break;
+
+        if (inst.type === "write") {
+          setPinState(inst.pin, inst.value);
+          setSerial(
+            [
+              "Serial Monitor:",
+              ...serialLines,
+              `GPIO${inst.pin} = ${inst.value ? "HIGH" : "LOW"}`,
+              `Instructions: ${instructions.length}`,
+              "Status: Running"
+            ].join("\n")
+          );
+        }
+
+        if (inst.type === "delay") {
+          setSerial((old) => `${old}\nDelay ${inst.ms} ms`);
+          await sleep(inst.ms);
+        }
+      }
+
+      const hasDelay = instructions.some((inst) => inst.type === "delay");
+      if (!hasDelay) break;
+    }
+
+    if (!runtimeRef.current.running) {
+      setSimRunning(false);
+    }
+  }
 
   function save() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(diagram));
@@ -1154,6 +1469,12 @@ function App() {
 
     return () => {
       window.removeEventListener("mouseup", stopWireControlDrag);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      runtimeRef.current.running = false;
     };
   }, []);
 
@@ -1273,15 +1594,18 @@ function App() {
 
           <div className="sim-buttons">
             <button
-              className="round play"
+              className={`round ${simRunning ? "stop" : "play"}`}
               onClick={(e) => {
                 e.stopPropagation();
-                setSerial(
-                  `Serial Monitor:\nHello, ESP32!\nParts: ${diagram.parts.length}\nWires: ${diagram.connections.length}`
-                );
+                if (simRunning) {
+                  stopSimulation();
+                } else {
+                  runSimulation();
+                }
               }}
+              title={simRunning ? "Stop simulation" : "Run simulation"}
             >
-              <Play size={22} />
+              {simRunning ? <Square size={20} /> : <Play size={22} />}
             </button>
 
             <button
@@ -1406,6 +1730,7 @@ function App() {
                 onPinClick={onPinClick}
                 onPinHover={setHoveredPin}
                 onPinLeave={() => setHoveredPin(null)}
+                ledStates={ledStates}
               />
             ))}
           </div>
